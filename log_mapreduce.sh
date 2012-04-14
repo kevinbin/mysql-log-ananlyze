@@ -70,18 +70,18 @@ tar xf $log_dir/${backupdate}_general_log_bak.tar.gz -C $mysql_datadir/$log_data
 
 gather_sql="select event_time,substring_index(concat_ws('@',substring_index(user_host,'[',1),substring_index(user_host,'[',-1)),']',1),argument from general_log_bak where command_type='query' and argument regexp '^select.*from|^insert|^update|^delete';"
 memsage "Dumping [ $log_dir/$general_log ] ..."
-$mysql -ss -S $sock -p$local_passwd $log_database -e "$gather_sql" | awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{sub(/@/,"\t");print NR,$0}' > $log_dir/$general_log 
+$mysql -ss -S $sock -p$local_passwd $log_database -e "$gather_sql" | awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{sub(/@/,"\t");sub(/select/,0);sub(/update/,1);sub(/insert/,2);sub(/delete/,3)};{if ($4 ~ /^0/){print NR,0,$0};if ($4 ~ /^1/){print NR,1,$0};if ($4 ~ /^2/){print NR,2,$0};if ($4 ~ /^3/){print NR,3,$0}}' > $log_dir/$general_log 
 
 memsage "Dumping [ $log_dir/$select_log ] ..."
-awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$5 ~ /^select.*from/{sub(/select/,0);print "\t"$2,$3,$4,$5}' $log_dir/$general_log > $log_dir/$select_log 
+awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$2 ~ /0/{print "\t"$3,$4,$5,$6}' $log_dir/$general_log > $log_dir/$select_log 
 
 memsage "Dumping [ $log_dir/$modify_log ] ..."
-awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$5 ~ /^update|^insert|^delete/{sub(/update/,1);sub(/insert/,2);sub(/delete/,3);print "\t"$2,$3,$4,$5}' $log_dir/$general_log > $log_dir/$modify_log 
+awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$2 ~ /1|2|3/{print "\t"$3,$4,$5,$6}' $log_dir/$general_log > $log_dir/$modify_log 
 
 
 $mysql -S $sock -p$local_passwd -ss $log_database -e "select DISTINCT(column_name) from info_columns "  > $all_keyword
 declare -a keyword_array=`awk  'BEGIN{OFS="";ORS=" "}{print $0}' $all_keyword|awk '{print "("$0")"}'`
-awk -v array_key="${keyword_array[*]}" 'BEGIN{nof = split(array_key,a)};{for (i in a){FS="\t";OFS="\t";if ($5 ~ a[i] && $5 ~ /^select/){select=0;print $1,select,a[i]};if ($5 ~ a[i] && $5 ~ /^update/){update=1;print $1,update,a[i]};if ($5 ~ a[i] && $5 ~ /^insert/){insert=2;print $1,insert,a[i]};if ($5 ~ a[i] && $5 ~ /^delete/){d=3;print $1,d,a[i]}}}' $log_dir/$general_log > $log_dir/$log_relate
+awk -v array_key="${keyword_array[*]}" 'BEGIN{nof = split(array_key,a)};{for (i in a){FS="\t";OFS="\t";if ($6 ~ a[i]){print $1,a[i]}}}' $log_dir/$general_log > $log_dir/$log_relate
 # |awk -F '\t' 'i==1{if($1==x){print  $1"\t",$2,y;i=0;next}else{print $0}}{x=$1;y=$2;i=1}END{if(i==1) print $0}' 
 
 function map_select () {
