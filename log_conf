@@ -1,0 +1,16 @@
+# 远程ssh账户
+os_user=root
+#日志文件存放目录
+log_dir=/home/logfiles
+mysql_datadir=/usr/local/mysql/data
+# 被采集数据库登陆账户,密码,主机,端口
+user=admin
+passwd=admin
+desthost=172.16.194.137
+port=3306
+# 本地日志库连接密码
+local_passwd=root
+# 本地日志库连接socket,
+sock=/tmp/mysql.sock 
+# 本地日志库名称
+log_database=aslog
