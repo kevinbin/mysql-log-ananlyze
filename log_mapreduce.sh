@@ -10,12 +10,13 @@
 #!/usr/bin/env bash
 
 
-source ./log_conf
+source /root/tomcat_log/log_conf
 
 general_log=`date +%Y-%m-%d`_general.log
 select_log=`date +%Y-%m-%d`_select.log
 modify_log=`date +%Y-%m-%d`_modify.log
 keyword_relate=`date +%Y-%m-%d`_relate.log
+collect_keyword=`date +%Y-%m-%d`_collect.log
 
 backupdate=`date +%Y_%m_%d`
 mysql=`which mysql`
@@ -45,10 +46,17 @@ memsage "Check [ $desthost ] general_log table is myisam engine ?"
 engine=`$mysql -ss -u$user -p$passwd -h$desthost -P$port mysql -e "select engine from information_schema.tables where table_schema='mysql' and table_name='general_log'"`
 [ $engine != "MyISAM" ] && die "general_log not is myisam engine"
 
+memsage "Collecting [ $desthost ] keyword information ... "
+$mysql -ss -B -u$user -p$passwd -h$desthost -P$port -e "select distinct column_name,table_name,table_schema from information_schema.columns where table_schema !='information_schema' and table_schema !='mysql'"|awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{print NR,$0}' > $log_dir/$collect_keyword
+
+memsage "Import keyword information ... "
+setsid $mysql -S $sock -p$local_passwd $log_database -e "truncate info_columns;load data infile '$log_dir/$collect_keyword' into table info_columns"
+
 # 备份general_log表为general_log_bak
 memsage "Rename general_log to general_log_bak on [ $desthost ] ... "
 $mysql -ss -u$user -p$passwd -h$desthost -P$port mysql -e "drop table if exists general_log_bak;create table if not exists tmp_general_log like general_log;set global general_log=off;rename table general_log to general_log_bak, tmp_general_log to general_log;set global general_log=on"
 mysqldata=`$mysql -ss -u$user -p$passwd -h$desthost -P$port -e "select VARIABLE_VALUE from information_schema.global_variables where variable_name='datadir';"`
+
 # 打包general_log_bak
 memsage "Compress [ ${backupdate}_general_log_bak.tar.gz ] on [ $desthost ] ... "
 ssh -q -tt $os_user@$desthost "cd $mysqldata/mysql/ && tar czf /tmp/${backupdate}_general_log_bak.tar.gz ./general_log_bak*"
@@ -69,15 +77,15 @@ tar xf $log_dir/${backupdate}_general_log_bak.tar.gz -C $mysql_datadir/$log_data
 [ ! -e  $mysql_datadir/$log_database/general_log_bak.frm ] && die "Table strucate file does not exists."
 
 
-gather_sql="select event_time,substring_index(concat_ws('@',substring_index(user_host,'[',1),substring_index(user_host,'[',-1)),']',1),argument from general_log_bak where command_type='query' and argument regexp '^select.*from|^insert|^update|^delete';"
+gather_sql="select event_time,substring_index(concat_ws('@',substring_index(user_host,'[',1),substring_index(user_host,'[',-1)),']',1),argument from general_log_bak where command_type='query' and argument regexp '^select.*from|^insert|^update|^delete' and user_host not regexp '^log_analyse';"
 memsage "Dumping [ $log_dir/$general_log ] ..."
 $mysql -ss -S $sock -p$local_passwd $log_database -e "$gather_sql" | awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{sub(/@/,"\t")};{if ($4 ~ /^select/){print NR,0,$0};if ($4 ~ /^update/){print NR,1,$0};if ($4 ~ /^insert/){print NR,2,$0};if ($4 ~ /^delete/){print NR,3,$0}}' > $log_dir/$general_log 
 
 memsage "Dumping [ $log_dir/$select_log ] ..."
-awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$2 ~ /0/{print "\t"$3,$4,$5,$6}' $log_dir/$general_log > $log_dir/$select_log 
+awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{if ($2 ~ /0/ && $4 ~ /[^'$webuser']/){print "\t"$3,$4,$5,$6}}' $log_dir/$general_log > $log_dir/$select_log 
 
 memsage "Dumping [ $log_dir/$modify_log ] ..."
-awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};$2 ~ /1|2|3/{print "\t"$3,$4,$5,$6}' $log_dir/$general_log > $log_dir/$modify_log 
+awk -F '\t' 'BEGIN{IGNORECASE=1;OFS="\t"};{if ($2 ~ /1|2|3/ && $4 ~ /[^'$webuser']/){print "\t"$3,$4,$5,$6}}' $log_dir/$general_log > $log_dir/$modify_log 
 
 
 $mysql -S $sock -p$local_passwd -ss $log_database -e "select DISTINCT(column_name) from info_columns "  > $all_keyword
