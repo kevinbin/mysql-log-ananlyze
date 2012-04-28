@@ -14,3 +14,5 @@ local_passwd=root
 sock=/tmp/mysql.sock 
 # 本地日志库名称
 log_database=aslog
+# 目标数据库web访问用户(不推送web用户操作记录)
+webuser=admin
