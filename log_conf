@@ -11,9 +11,9 @@ port=3306
 # 本地日志库连接密码
 local_passwd=root
 # 本地日志库连接socket,
-sock=/tmp/mysql.sock 
+sock=/tmp/mysql.sock
 # 本地日志库名称
 log_database=aslog
 # 目标数据库web访问用户(不推送web用户操作记录)
 webuser=admin
-awk_thread=48
+sys_log=$log_dir/shell_log
