@@ -211,6 +211,7 @@ check_mysql_client
 check_mysql_alive
 check_engine
 backup_general_log
+check_ssh
 tar_general_log
 remote_copy
 clean_file
