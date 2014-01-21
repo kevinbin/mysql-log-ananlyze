@@ -1,12 +1,12 @@
 #========================================================================
-#     FileName: log_mapreduce_new.sh
+#     FileName: log_analyze.sh
 #         Desc:
 #       Author: hongbin
 #        Email: hongbin@actionsky.com
 #      Version: 1.0
 #   CreateTime: 2012-02-27 11:27
 #========================================================================
-# * 0 * * * sh /path/log_mapreduce_new.sh
+# * 0 * * * sh /path/log_analyze.sh
 #!/usr/bin/env bash
 
 # require configure file
